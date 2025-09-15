@@ -8,43 +8,25 @@ import com.rudo.rickAndMortyApp.data.dataSource.characters.local.dbo.FavoriteCha
 import kotlinx.coroutines.flow.Flow
 
 /**
- * Data Access Object for favorite character IDs.
+ * Data Access Object for complete favorite characters.
+ * Store full character data for better performance and offline support.
  * Follows Interface Segregation Principle - contains only methods related to favorite operations.
  */
 @Dao
 interface FavoriteCharacterDao {
-    
-    /**
-     * Adds a character to favorites.
-     * Uses REPLACE strategy to handle duplicates gracefully.
-     */
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun addToFavorites(favoriteCharacter: FavoriteCharacterDbo)
-    
-    /**
-     * Removes a character from favorites by character ID.
-     */
-    @Query("DELETE FROM favorite_characters WHERE characterId = :characterId")
+
+    @Query("DELETE FROM favorite_characters WHERE id = :characterId")
     suspend fun removeFromFavorites(characterId: Int)
-    
-    /**
-     * Gets all favorite character IDs as a reactive Flow.
-     * UI can observe this for real-time updates.
-     */
-    @Query("SELECT characterId FROM favorite_characters ORDER BY addedDate DESC")
-    fun getFavoriteCharacterIdsFlow(): Flow<List<Int>>
-    
-    /**
-     * Gets all favorite character IDs as a one-time list.
-     * Useful for non-reactive operations.
-     */
-    @Query("SELECT characterId FROM favorite_characters ORDER BY addedDate DESC")
+
+    @Query("SELECT * FROM favorite_characters ORDER BY added_date DESC")
+    fun getFavoriteCharactersFlow(): Flow<List<FavoriteCharacterDbo>>
+
+    @Query("SELECT id FROM favorite_characters ORDER BY added_date DESC")
     suspend fun getFavoriteCharacterIds(): List<Int>
-    
-    /**
-     * Checks if a character is marked as favorite.
-     * Optimized query that returns boolean directly.
-     */
-    @Query("SELECT EXISTS(SELECT 1 FROM favorite_characters WHERE characterId = :characterId)")
+
+    @Query("SELECT EXISTS(SELECT 1 FROM favorite_characters WHERE id = :characterId)")
     suspend fun isFavorite(characterId: Int): Boolean
 }

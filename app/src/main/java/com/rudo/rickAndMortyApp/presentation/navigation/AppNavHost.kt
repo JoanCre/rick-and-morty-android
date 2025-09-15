@@ -82,7 +82,7 @@ fun AppNavHost(
         composable<Screen.CharacterDetail> {
             val args = it.toRoute<Screen.CharacterDetail>()
             CharacterDetailScreen(
-                id = args.id,
+                characterId = args.id,
                 onNavigateBack = { navController.popBackStack() }
             )
         }

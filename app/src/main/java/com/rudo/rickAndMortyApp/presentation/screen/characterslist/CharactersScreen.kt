@@ -16,6 +16,8 @@ import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -31,7 +33,6 @@ import com.rudo.rickAndMortyApp.presentation.components.LoadingState
 import com.rudo.rickAndMortyApp.presentation.components.PagingErrorState
 import com.rudo.rickAndMortyApp.presentation.components.PagingLoadingState
 
-// Actions interface following gula-android pattern
 private interface CharactersActions {
     fun onNavigateToCharacterDetail(id: Int)
     fun onTabChange(tab: CharacterTab)
@@ -52,7 +53,7 @@ fun CharactersScreen(
     viewModel: CharactersViewModel = hiltViewModel(),
     modifier: Modifier = Modifier,
 ) {
-    val uiState = viewModel.uiState
+    val uiState by viewModel.uiState.collectAsState()
     val items = viewModel.items.collectAsLazyPagingItems()
 
     val actions = object : CharactersActions {

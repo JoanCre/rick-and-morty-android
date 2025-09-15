@@ -3,16 +3,18 @@ package com.rudo.rickAndMortyApp.data.repository
 import androidx.paging.Pager
 import androidx.paging.PagingConfig
 import androidx.paging.PagingData
-import com.rudo.rickAndMortyApp.data.dataSource.characters.remote.CharactersRemoteDataSource
 import com.rudo.rickAndMortyApp.data.dataSource.characters.local.CharactersLocalDataSource
-import com.rudo.rickAndMortyApp.data.paging.CharactersPagingSource
+import com.rudo.rickAndMortyApp.data.dataSource.characters.remote.CharactersRemoteDataSource
 import com.rudo.rickAndMortyApp.data.dataSource.characters.remote.dto.CharacterDto
+import com.rudo.rickAndMortyApp.data.paging.CharactersPagingSource
 import com.rudo.rickAndMortyApp.domain.entity.Character
 import com.rudo.rickAndMortyApp.domain.entity.CharacterDetail
 import com.rudo.rickAndMortyApp.domain.entity.EpisodeRef
 import com.rudo.rickAndMortyApp.domain.repository.CharactersRepository
-import javax.inject.Inject
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.withContext
+import javax.inject.Inject
 
 /**
  * Repository implementation that coordinates data from network (Retrofit) and local DB (Room)
@@ -31,12 +33,6 @@ class CharactersRepositoryImpl @Inject constructor(
 ) : CharactersRepository {
 
 
-    /**
-     * Returns a flow of paginated characters filtered by optional [searchQuery].
-     *
-     * - PagingSource fetches from network and merges favorite state from Room.
-     * - Domain models are emitted (no DTO leaks).
-     */
     override fun getCharactersStream(searchQuery: String?): Flow<PagingData<Character>> =
         Pager(
             config = PagingConfig(
@@ -53,57 +49,40 @@ class CharactersRepositoryImpl @Inject constructor(
             }
         ).flow
 
-    /**
-     * Loads a single character detail from the network and augments it with favorite state from Room.
-     */
-    override suspend fun getCharacter(id: Int): CharacterDetail {
+    override suspend fun getCharacter(id: Int): CharacterDetail = withContext(Dispatchers.IO) {
         val dto = remoteDataSource.getCharacter(id)
         val isFavorite = localDataSource.isFavorite(id)
-        return dto.toDetail(isFavorite)
+        dto.toDetail(isFavorite)
     }
 
-    /** Toggles favorite state of a character and persists in Room. */
-    override suspend fun toggleFavorite(characterId: Int) {
-        localDataSource.toggleFavorite(characterId)
+    override suspend fun toggleFavorite(characterId: Int) = withContext(Dispatchers.IO) {
+        // Get complete character data before toggling
+        val characterDto = remoteDataSource.getCharacter(characterId)
+        val character = Character(
+            id = characterDto.id,
+            name = characterDto.name,
+            status = characterDto.status.toCharacterStatus(),
+            species = characterDto.species,
+            type = characterDto.type,
+            gender = characterDto.gender.toCharacterGender(),
+            origin = characterDto.origin.name,
+            location = characterDto.location.name,
+            image = characterDto.image,
+            episodes = characterDto.episode,
+            url = characterDto.url,
+            created = characterDto.created
+        )
+        localDataSource.toggleFavorite(character)
     }
 
-    /** Returns current favorite state from Room. */
     override suspend fun isFavorite(characterId: Int): Boolean {
         return localDataSource.isFavorite(characterId)
     }
 
-    /** Emits the set of favorite character IDs stored in Room as a Flow. */
-    override fun getFavoriteCharacterIds(): Flow<List<Int>> {
-        return localDataSource.getFavoriteCharacterIdsFlow()
+    override fun getFavoriteCharactersFlow(): Flow<List<Character>> {
+        return localDataSource.getFavoriteCharactersFlow()
     }
 
-    /**
-     * Returns the list of favorite characters by resolving their details via network.
-     * Used for the Favorites tab without performing full pagination.
-     */
-    override suspend fun getFavoriteCharacters(): List<Character> {
-        val favoriteIds = localDataSource.getFavoriteCharacters()
-        return favoriteIds.mapNotNull { id ->
-            try {
-                val dto = remoteDataSource.getCharacter(id)
-                Character(
-                    id = dto.id,
-                    name = dto.name,
-                    status = dto.status.toCharacterStatus(),
-                    origin = dto.origin.name,
-                    image = dto.image,
-                    isFavorite = true
-                )
-            } catch (e: Exception) {
-                null
-            }
-        }
-    }
-
-    /**
-     * Extension function to map CharacterDto to CharacterDetail domain entity.
-     * Mapper functions in repository layer.
-     */
     private fun CharacterDto.toDetail(isFavorite: Boolean = false): CharacterDetail {
         return CharacterDetail(
             id = id,
@@ -120,15 +99,20 @@ class CharactersRepositoryImpl @Inject constructor(
     }
 }
 
-/**
- * Extension functions for mapping DTOs to domain entities.
- * Centralized mapping logic to avoid duplication.
- */
 fun String.toCharacterStatus(): Character.Status {
     return when (lowercase()) {
         "alive" -> Character.Status.Alive
         "dead" -> Character.Status.Dead
         else -> Character.Status.Unknown
+    }
+}
+
+fun String.toCharacterGender(): Character.Gender {
+    return when (lowercase()) {
+        "male" -> Character.Gender.Male
+        "female" -> Character.Gender.Female
+        "genderless" -> Character.Gender.Genderless
+        else -> Character.Gender.Unknown
     }
 }
 

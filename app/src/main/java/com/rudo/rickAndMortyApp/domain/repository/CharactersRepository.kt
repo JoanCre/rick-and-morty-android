@@ -12,6 +12,5 @@ interface CharactersRepository {
     // Favorites operations
     suspend fun toggleFavorite(characterId: Int)
     suspend fun isFavorite(characterId: Int): Boolean
-    fun getFavoriteCharacterIds(): Flow<List<Int>>
-    suspend fun getFavoriteCharacters(): List<Character>
+    fun getFavoriteCharactersFlow(): Flow<List<Character>>
 }

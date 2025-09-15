@@ -25,6 +25,11 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -43,6 +48,14 @@ fun CharacterBanner(
     onToggleFavorite: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    var isFavoriteLocal by remember {
+        mutableStateOf(isFavorite)
+    }
+
+    LaunchedEffect(isFavorite) {
+        isFavoriteLocal = isFavorite
+    }
+
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -60,9 +73,9 @@ fun CharacterBanner(
         )
 
         Icon(
-            imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+            imageVector = if (isFavoriteLocal) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
             contentDescription = "Favorite",
-            tint = if (isFavorite) Color.Red else Color.White,
+            tint = if (isFavoriteLocal) Color.Red else Color.White,
             modifier = Modifier
                 .size(36.dp)
                 .align(Alignment.BottomEnd)
@@ -70,7 +83,10 @@ fun CharacterBanner(
                 .clip(CircleShape)
                 .background(Color(0xFF74D053))
                 .padding(8.dp)
-                .clickable { onToggleFavorite() }
+                .clickable {
+                    isFavoriteLocal = !isFavoriteLocal
+                    onToggleFavorite()
+                }
         )
     }
 }

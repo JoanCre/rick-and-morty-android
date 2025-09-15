@@ -2,7 +2,9 @@ package com.rudo.rickAndMortyApp.data.dataSource.local.database
 
 import androidx.room.Database
 import androidx.room.RoomDatabase
+import androidx.room.TypeConverters
 import com.rudo.rickAndMortyApp.data.dataSource.characters.local.dao.FavoriteCharacterDao
+import com.rudo.rickAndMortyApp.data.dataSource.characters.local.dbo.EpisodeTypeConverter
 import com.rudo.rickAndMortyApp.data.dataSource.characters.local.dbo.FavoriteCharacterDbo
 
 /**
@@ -11,9 +13,10 @@ import com.rudo.rickAndMortyApp.data.dataSource.characters.local.dbo.FavoriteCha
  */
 @Database(
     entities = [FavoriteCharacterDbo::class],
-    version = 2,
-    exportSchema = false
+    version = 3,
+    exportSchema = true
 )
+@TypeConverters(EpisodeTypeConverter::class)
 abstract class AppDatabase : RoomDatabase() {
 
     /**

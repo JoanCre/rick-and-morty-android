@@ -29,6 +29,11 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -86,6 +91,13 @@ fun CharacterCard(
     onFavoriteClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // Local state for optimistic updates
+    var isFavoriteLocal by remember(character.id) { mutableStateOf(character.isFavorite) }
+
+    // Sync with domain state
+    LaunchedEffect(character.isFavorite) {
+        isFavoriteLocal = character.isFavorite
+    }
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
@@ -160,12 +172,15 @@ fun CharacterCard(
                 )
             }
             Icon(
-                imageVector = if (character.isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                imageVector = if (isFavoriteLocal) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
                 contentDescription = "Favorite",
-                tint = if (character.isFavorite) Color.Red else Color(0xFF6F767E),
+                tint = if (isFavoriteLocal) Color.Red else Color(0xFF6F767E),
                 modifier = Modifier
                     .size(24.dp)
-                    .clickable { onFavoriteClick() }
+                    .clickable {
+                        isFavoriteLocal = !isFavoriteLocal
+                        onFavoriteClick()
+                    }
             )
         }
     }

@@ -23,3 +23,8 @@ data class CharacterDetailUiState(
     val error: String? = null,
     val detail: CharacterDetailUi? = null
 )
+
+sealed interface CharacterDetailEffect {
+    data class ShowError(val message: String) : CharacterDetailEffect
+    object NavigateBack : CharacterDetailEffect
+}

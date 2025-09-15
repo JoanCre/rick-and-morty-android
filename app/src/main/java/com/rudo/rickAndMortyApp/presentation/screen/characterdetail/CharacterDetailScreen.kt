@@ -17,6 +17,8 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -33,15 +35,15 @@ private interface CharacterDetailActions {
 
 @Composable
 fun CharacterDetailScreen(
-    id: Int,
+    characterId: Int,
     onNavigateBack: () -> Unit,
-    viewModel: CharacterDetailViewModel = hiltViewModel(),
     modifier: Modifier = Modifier,
+    viewModel: CharacterDetailViewModel = hiltViewModel(),
 ) {
-    val state = viewModel.uiState
+    val state by viewModel.uiState.collectAsState()
 
-    LaunchedEffect(id) {
-        viewModel.load(id)
+    LaunchedEffect(characterId) {
+        viewModel.load(characterId)
     }
 
     val actions = object : CharacterDetailActions {
@@ -50,7 +52,7 @@ fun CharacterDetailScreen(
         }
 
         override fun onRetry() {
-            viewModel.load(id)
+            viewModel.load(characterId)
         }
 
         override fun onToggleFavorite() {
@@ -60,8 +62,7 @@ fun CharacterDetailScreen(
 
     CharacterDetailContent(
         state = state,
-        actions = actions,
-        modifier = modifier
+        actions = actions
     )
 }
 
@@ -70,7 +71,6 @@ fun CharacterDetailScreen(
 private fun CharacterDetailContent(
     state: CharacterDetailUiState,
     actions: CharacterDetailActions,
-    modifier: Modifier = Modifier,
 ) {
     Scaffold(
         topBar = {

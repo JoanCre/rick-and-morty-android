@@ -2,25 +2,26 @@ package com.rudo.rickAndMortyApp.data.paging
 
 import androidx.paging.PagingSource
 import androidx.paging.PagingState
-import com.rudo.rickAndMortyApp.data.dataSource.characters.remote.CharactersRemoteDataSource
 import com.rudo.rickAndMortyApp.data.dataSource.characters.local.CharactersLocalDataSource
-import com.rudo.rickAndMortyApp.domain.entity.Character
-import com.rudo.rickAndMortyApp.data.repository.toCharacterStatus
+import com.rudo.rickAndMortyApp.data.dataSource.characters.remote.CharactersRemoteDataSource
 import com.rudo.rickAndMortyApp.data.dataSource.characters.remote.dto.CharacterDto
+import com.rudo.rickAndMortyApp.data.repository.toCharacterGender
+import com.rudo.rickAndMortyApp.data.repository.toCharacterStatus
+import com.rudo.rickAndMortyApp.domain.entity.Character
 import retrofit2.HttpException
 import java.io.IOException
 
- /**
-  * PagingSource responsible for providing paged Character data to Paging 3.
-  *
-  * Data flow:
-  * - Network page is fetched via [CharactersRemoteDataSource].
-  * - Local favorites are read via [CharactersLocalDataSource] (Room) to mark items as favorite.
-  * - DTOs are mapped to domain [Character] to keep domain free of infrastructure concerns.
-  *
-  * This class is infrastructure-only: no UI/business logic here (Clean Architecture).
-  */
- class CharactersPagingSource(
+/**
+ * PagingSource responsible for providing paged Character data to Paging 3.
+ *
+ * Data flow:
+ * - Network page is fetched via [CharactersRemoteDataSource].
+ * - Local favorites are read via [CharactersLocalDataSource] (Room) to mark items as favorite.
+ * - DTOs are mapped to domain [Character] to keep domain free of infrastructure concerns.
+ *
+ * This class is infrastructure-only: no UI/business logic here (Clean Architecture).
+ */
+class CharactersPagingSource(
     private val remoteDataSource: CharactersRemoteDataSource,
     private val localDataSource: CharactersLocalDataSource,
     private val searchQuery: String? = null
@@ -45,16 +46,16 @@ import java.io.IOException
         val page = params.key ?: 1
         return try {
             val response = remoteDataSource.getCharacters(page, searchQuery)
-            val favoriteIds = localDataSource.getFavoriteCharacters()
+            val favoriteIds = localDataSource.getFavoriteCharacterIds()
             val items = response.results.map { dto ->
                 val isFavorite = favoriteIds.contains(dto.id)
                 mapDtoToDomain(dto, isFavorite)
             }
-            
+
             val info = response.info
             val prevKey = if (page > 1) page - 1 else null
             val nextKey = if (info?.next != null) page + 1 else null
-            
+
             LoadResult.Page(
                 data = items,
                 prevKey = prevKey,
@@ -68,15 +69,22 @@ import java.io.IOException
             LoadResult.Error(e)
         }
     }
-    
+
     /** Maps Retrofit DTO to domain model, keeping domain isolated from data layer types. */
     private fun mapDtoToDomain(dto: CharacterDto, isFavorite: Boolean): Character {
         return Character(
             id = dto.id,
             name = dto.name,
             status = dto.status.toCharacterStatus(),
+            species = dto.species,
+            type = dto.type,
+            gender = dto.gender.toCharacterGender(),
             origin = dto.origin.name,
+            location = dto.location.name,
             image = dto.image,
+            episodes = dto.episode,
+            url = dto.url,
+            created = dto.created,
             isFavorite = isFavorite
         )
     }

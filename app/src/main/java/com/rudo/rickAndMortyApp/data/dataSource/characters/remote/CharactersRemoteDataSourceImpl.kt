@@ -13,10 +13,10 @@ import javax.inject.Inject
 class CharactersRemoteDataSourceImpl @Inject constructor(
     private val api: CharactersApi
 ) : CharactersRemoteDataSource {
-    
+
     override suspend fun getCharacters(page: Int, name: String?): CharactersResponseDto {
         return api.getCharacters(page, name)
     }
-    
+
     override suspend fun getCharacter(id: Int): CharacterDto = api.getCharacter(id)
 }
