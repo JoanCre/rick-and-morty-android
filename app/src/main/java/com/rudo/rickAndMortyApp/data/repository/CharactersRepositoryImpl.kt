@@ -11,8 +11,10 @@ import com.rudo.rickAndMortyApp.domain.entity.Character
 import com.rudo.rickAndMortyApp.domain.entity.CharacterDetail
 import com.rudo.rickAndMortyApp.domain.entity.EpisodeRef
 import com.rudo.rickAndMortyApp.domain.repository.CharactersRepository
+import androidx.paging.map
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
@@ -32,9 +34,8 @@ class CharactersRepositoryImpl @Inject constructor(
     private val localDataSource: CharactersLocalDataSource
 ) : CharactersRepository {
 
-
-    override fun getCharactersStream(searchQuery: String?): Flow<PagingData<Character>> =
-        Pager(
+    override fun getCharactersStream(searchQuery: String?): Flow<PagingData<Character>> {
+        return Pager(
             config = PagingConfig(
                 pageSize = 20,
                 enablePlaceholders = false,
@@ -47,7 +48,13 @@ class CharactersRepositoryImpl @Inject constructor(
                     searchQuery = searchQuery
                 )
             }
-        ).flow
+        ).flow.map { pagingData ->
+            pagingData.map { dto ->
+                val isFavorite = localDataSource.isFavorite(dto.id)
+                dto.toCharacter(isFavorite)
+            }
+        }
+    }
 
     override suspend fun getCharacter(id: Int): CharacterDetail = withContext(Dispatchers.IO) {
         val dto = remoteDataSource.getCharacter(id)
@@ -56,23 +63,8 @@ class CharactersRepositoryImpl @Inject constructor(
     }
 
     override suspend fun toggleFavorite(characterId: Int) = withContext(Dispatchers.IO) {
-        // Get complete character data before toggling
         val characterDto = remoteDataSource.getCharacter(characterId)
-        val character = Character(
-            id = characterDto.id,
-            name = characterDto.name,
-            status = characterDto.status.toCharacterStatus(),
-            species = characterDto.species,
-            type = characterDto.type,
-            gender = characterDto.gender.toCharacterGender(),
-            origin = characterDto.origin.name,
-            location = characterDto.location.name,
-            image = characterDto.image,
-            episodes = characterDto.episode,
-            url = characterDto.url,
-            created = characterDto.created
-        )
-        localDataSource.toggleFavorite(character)
+        localDataSource.toggleFavorite(characterDto)
     }
 
     override suspend fun isFavorite(characterId: Int): Boolean {
@@ -80,7 +72,9 @@ class CharactersRepositoryImpl @Inject constructor(
     }
 
     override fun getFavoriteCharactersFlow(): Flow<List<Character>> {
-        return localDataSource.getFavoriteCharactersFlow()
+        return localDataSource.getFavoriteCharactersFlow().map { dtos ->
+            dtos.map { it.toCharacter(isFavorite = true) }
+        }
     }
 
     private fun CharacterDto.toDetail(isFavorite: Boolean = false): CharacterDetail {
@@ -99,7 +93,25 @@ class CharactersRepositoryImpl @Inject constructor(
     }
 }
 
-fun String.toCharacterStatus(): Character.Status {
+private fun CharacterDto.toCharacter(isFavorite: Boolean = false): Character {
+    return Character(
+        id = id,
+        name = name,
+        status = status.toCharacterStatus(),
+        species = species,
+        type = type,
+        gender = gender.toCharacterGender(),
+        origin = origin.name,
+        location = location.name,
+        image = image,
+        episodes = episode,
+        url = url,
+        created = created,
+        isFavorite = isFavorite
+    )
+}
+
+private fun String.toCharacterStatus(): Character.Status {
     return when (lowercase()) {
         "alive" -> Character.Status.Alive
         "dead" -> Character.Status.Dead
@@ -107,7 +119,7 @@ fun String.toCharacterStatus(): Character.Status {
     }
 }
 
-fun String.toCharacterGender(): Character.Gender {
+private fun String.toCharacterGender(): Character.Gender {
     return when (lowercase()) {
         "male" -> Character.Gender.Male
         "female" -> Character.Gender.Female

@@ -79,7 +79,9 @@ fun CharactersSearchBar(
             disabledContainerColor = Color.White,
             focusedBorderColor = Color.Transparent,
             unfocusedBorderColor = Color.Transparent,
-            cursorColor = Color(0xFF2D2F33)
+            cursorColor = Color(0xFF2D2F33),
+            focusedTextColor = Color(0xFF2D2F33),
+            unfocusedTextColor = Color(0xFF2D2F33)
         ),
         shape = RoundedCornerShape(12.dp)
     )
@@ -91,10 +93,8 @@ fun CharacterCard(
     onFavoriteClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    // Local state for optimistic updates
     var isFavoriteLocal by remember(character.id) { mutableStateOf(character.isFavorite) }
 
-    // Sync with domain state
     LaunchedEffect(character.isFavorite) {
         isFavoriteLocal = character.isFavorite
     }

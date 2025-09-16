@@ -30,9 +30,7 @@ class CharacterDetailViewModel @Inject constructor(
     val effects: SharedFlow<CharacterDetailEffect> = _effects.asSharedFlow()
 
     fun load(id: Int) {
-        if (!_uiState.value.isLoading && _uiState.value.detail?.id == id) return
-
-        _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+        _uiState.value = _uiState.value.copy(isLoading = true, error = null, detail = null)
 
         viewModelScope.launch {
             runCatching {

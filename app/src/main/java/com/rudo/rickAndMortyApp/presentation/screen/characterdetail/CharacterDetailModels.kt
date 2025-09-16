@@ -19,7 +19,7 @@ data class EpisodeUi(
 )
 
 data class CharacterDetailUiState(
-    val isLoading: Boolean = true,
+    val isLoading: Boolean = false,
     val error: String? = null,
     val detail: CharacterDetailUi? = null
 )

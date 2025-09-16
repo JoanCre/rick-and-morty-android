@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -42,34 +43,50 @@ class CharactersViewModel @Inject constructor(
 
     private val _query = MutableStateFlow("")
     private val _selectedTab = MutableStateFlow(CharacterTab.ALL)
+    private val _refresh = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
 
-    val items: Flow<PagingData<CharacterUi>> = combine(
+    val pagedItems: Flow<PagingData<CharacterUi>> = combine(
         _query.debounce(300).distinctUntilChanged(),
         _selectedTab
     ) { query, tab ->
-        updateSearchingState(query.isNotBlank())
+        if (tab == CharacterTab.ALL && query.isNotBlank()) {
+            updateSearchingState(true)
+        }
         query to tab
     }.flatMapLatest { (query, tab) ->
-        when (tab) {
-            CharacterTab.ALL -> {
-                charactersUseCase.getCharactersStream(query.takeIf { it.isNotBlank() })
-                    .map { paging ->
-                        updateSearchingState(false)
-                        paging.map { it.toUi() }
-                    }
-                    .cachedIn(viewModelScope)
-            }
+        if (tab == CharacterTab.ALL) {
+            charactersUseCase.getCharactersStream(query.takeIf { it.isNotBlank() })
+                .map { paging -> 
+                    updateSearchingState(false)
+                    paging.map { it.toUi() } 
+                }
+                .cachedIn(viewModelScope)
+        } else {
+            kotlinx.coroutines.flow.flowOf(PagingData.empty())
+        }
+    }
 
-            CharacterTab.FAVORITES -> {
-                charactersUseCase.getFavoriteCharactersFlow()
-                    .map { favorites ->
-                        val filtered = if (query.isNotBlank()) {
-                            favorites.filter { it.name.contains(query, ignoreCase = true) }
-                        } else favorites
-                        updateSearchingState(false)
-                        PagingData.from(filtered.map { it.toUi() })
-                    }
-            }
+    val favoriteItems: Flow<List<CharacterUi>> = combine(
+        _query.debounce(300).distinctUntilChanged(),
+        _selectedTab,
+        _refresh.onStart { emit(Unit) }
+    ) { query, tab, _ ->
+        if (tab == CharacterTab.FAVORITES && query.isNotBlank()) {
+            updateSearchingState(true)
+        }
+        query to tab
+    }.flatMapLatest { (query, tab) ->
+        if (tab == CharacterTab.FAVORITES) {
+            charactersUseCase.getFavoriteCharactersFlow()
+                .map { favorites ->
+                    val filtered = if (query.isNotBlank()) {
+                        favorites.filter { it.name.contains(query, ignoreCase = true) }
+                    } else favorites
+                    updateSearchingState(false)
+                    filtered.map { it.toUi() }
+                }
+        } else {
+            kotlinx.coroutines.flow.flowOf(emptyList())
         }
     }
 
@@ -78,12 +95,12 @@ class CharactersViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(isSearching = isSearching)
     }
 
+
     fun onEvent(event: CharactersEvent) {
         when (event) {
             is CharactersEvent.OnQueryChange -> {
                 _uiState.value = _uiState.value.copy(
                     query = event.value,
-                    isSearching = event.value.isNotBlank(),
                     error = null
                 )
                 _query.value = event.value
@@ -106,10 +123,17 @@ class CharactersViewModel @Inject constructor(
             }
 
             is CharactersEvent.OnTabChange -> {
-                _uiState.value = _uiState.value.copy(selectedTab = event.tab)
+                _uiState.value = _uiState.value.copy(
+                    selectedTab = event.tab,
+                    isSearching = false
+                )
                 _selectedTab.value = event.tab
             }
         }
+    }
+
+    fun refresh() {
+        _refresh.tryEmit(Unit)
     }
 
 }

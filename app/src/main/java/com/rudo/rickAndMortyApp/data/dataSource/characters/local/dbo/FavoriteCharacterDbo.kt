@@ -39,7 +39,7 @@ data class FavoriteCharacterDbo(
     val image: String,
     
     @ColumnInfo(name = "episodes")
-    val episodes: List<String>, // Episode URLs with TypeConverter
+    val episodes: List<String>,
     
     @ColumnInfo(name = "url")
     val url: String,

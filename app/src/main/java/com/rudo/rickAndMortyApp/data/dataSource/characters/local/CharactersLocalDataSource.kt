@@ -1,6 +1,6 @@
 package com.rudo.rickAndMortyApp.data.dataSource.characters.local
 
-import com.rudo.rickAndMortyApp.domain.entity.Character
+import com.rudo.rickAndMortyApp.data.dataSource.characters.remote.dto.CharacterDto
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -10,8 +10,8 @@ import kotlinx.coroutines.flow.Flow
  * Follows Dependency Inversion Principle - abstraction for local data access.
  */
 interface CharactersLocalDataSource {
-    suspend fun toggleFavorite(character: Character)
+    suspend fun toggleFavorite(character: CharacterDto)
     suspend fun getFavoriteCharacterIds(): List<Int>
     suspend fun isFavorite(characterId: Int): Boolean
-    fun getFavoriteCharactersFlow(): Flow<List<Character>>
+    fun getFavoriteCharactersFlow(): Flow<List<CharacterDto>>
 }

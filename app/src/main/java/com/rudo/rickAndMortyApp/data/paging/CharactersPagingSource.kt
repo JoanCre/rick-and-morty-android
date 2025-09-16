@@ -5,9 +5,6 @@ import androidx.paging.PagingState
 import com.rudo.rickAndMortyApp.data.dataSource.characters.local.CharactersLocalDataSource
 import com.rudo.rickAndMortyApp.data.dataSource.characters.remote.CharactersRemoteDataSource
 import com.rudo.rickAndMortyApp.data.dataSource.characters.remote.dto.CharacterDto
-import com.rudo.rickAndMortyApp.data.repository.toCharacterGender
-import com.rudo.rickAndMortyApp.data.repository.toCharacterStatus
-import com.rudo.rickAndMortyApp.domain.entity.Character
 import retrofit2.HttpException
 import java.io.IOException
 
@@ -25,12 +22,12 @@ class CharactersPagingSource(
     private val remoteDataSource: CharactersRemoteDataSource,
     private val localDataSource: CharactersLocalDataSource,
     private val searchQuery: String? = null
-) : PagingSource<Int, Character>() {
+) : PagingSource<Int, CharacterDto>() {
 
     /**
      * Computes the key for a refresh operation keeping the user near the current position.
      */
-    override fun getRefreshKey(state: PagingState<Int, Character>): Int? {
+    override fun getRefreshKey(state: PagingState<Int, CharacterDto>): Int? {
         val anchor = state.anchorPosition ?: return null
         val page = state.closestPageToPosition(anchor)
         return page?.prevKey?.plus(1) ?: page?.nextKey?.minus(1)
@@ -39,18 +36,13 @@ class CharactersPagingSource(
     /**
      * Loads a single page:
      * - Calls remote API with optional [searchQuery].
-     * - Merges favorite state from local database.
-     * - Maps DTO -> domain [Character].
+     * - Returns DTOs directly (mapping to domain happens in Repository layer).
      */
-    override suspend fun load(params: LoadParams<Int>): LoadResult<Int, Character> {
+    override suspend fun load(params: LoadParams<Int>): LoadResult<Int, CharacterDto> {
         val page = params.key ?: 1
         return try {
             val response = remoteDataSource.getCharacters(page, searchQuery)
-            val favoriteIds = localDataSource.getFavoriteCharacterIds()
-            val items = response.results.map { dto ->
-                val isFavorite = favoriteIds.contains(dto.id)
-                mapDtoToDomain(dto, isFavorite)
-            }
+            val items = response.results
 
             val info = response.info
             val prevKey = if (page > 1) page - 1 else null
@@ -68,24 +60,5 @@ class CharactersPagingSource(
         } catch (e: Exception) {
             LoadResult.Error(e)
         }
-    }
-
-    /** Maps Retrofit DTO to domain model, keeping domain isolated from data layer types. */
-    private fun mapDtoToDomain(dto: CharacterDto, isFavorite: Boolean): Character {
-        return Character(
-            id = dto.id,
-            name = dto.name,
-            status = dto.status.toCharacterStatus(),
-            species = dto.species,
-            type = dto.type,
-            gender = dto.gender.toCharacterGender(),
-            origin = dto.origin.name,
-            location = dto.location.name,
-            image = dto.image,
-            episodes = dto.episode,
-            url = dto.url,
-            created = dto.created,
-            isFavorite = isFavorite
-        )
     }
 }

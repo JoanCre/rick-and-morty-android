@@ -1,9 +1,9 @@
 package com.rudo.rickAndMortyApp.data.dataSource.characters.local
 
 import com.rudo.rickAndMortyApp.data.dataSource.characters.local.dao.FavoriteCharacterDao
-import com.rudo.rickAndMortyApp.data.dataSource.characters.local.dbo.toCharacter
-import com.rudo.rickAndMortyApp.data.dataSource.characters.local.dbo.toDbo
-import com.rudo.rickAndMortyApp.domain.entity.Character
+import com.rudo.rickAndMortyApp.data.dataSource.characters.local.dbo.FavoriteCharacterDbo
+import com.rudo.rickAndMortyApp.data.dataSource.characters.remote.dto.CharacterDto
+import com.rudo.rickAndMortyApp.data.dataSource.characters.remote.dto.LocationRefDto
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
@@ -15,7 +15,7 @@ class CharactersLocalDataSourceImpl @Inject constructor(
     private val favoriteCharacterDao: FavoriteCharacterDao
 ) : CharactersLocalDataSource {
 
-    override suspend fun toggleFavorite(character: Character) {
+    override suspend fun toggleFavorite(character: CharacterDto) {
         if (favoriteCharacterDao.isFavorite(character.id)) {
             favoriteCharacterDao.removeFromFavorites(character.id)
         } else {
@@ -31,9 +31,43 @@ class CharactersLocalDataSourceImpl @Inject constructor(
         return favoriteCharacterDao.isFavorite(characterId)
     }
 
-    override fun getFavoriteCharactersFlow(): Flow<List<Character>> {
+    override fun getFavoriteCharactersFlow(): Flow<List<CharacterDto>> {
         return favoriteCharacterDao.getFavoriteCharactersFlow().map { dboList ->
-            dboList.map { it.toCharacter() }
+            dboList.map { it.toDto() }
         }
+    }
+
+    private fun CharacterDto.toDbo(): FavoriteCharacterDbo {
+        return FavoriteCharacterDbo(
+            id = id,
+            name = name,
+            status = status,
+            species = species,
+            type = type,
+            gender = gender,
+            origin = origin.name,
+            location = location.name,
+            image = image,
+            episodes = episode,
+            url = url,
+            created = created
+        )
+    }
+
+    private fun FavoriteCharacterDbo.toDto(): CharacterDto {
+        return CharacterDto(
+            id = id,
+            name = name,
+            status = status,
+            species = species,
+            type = type,
+            gender = gender,
+            origin = LocationRefDto(name = origin, url = ""),
+            location = LocationRefDto(name = location, url = ""),
+            image = image,
+            episode = episodes,
+            url = url,
+            created = created
+        )
     }
 }

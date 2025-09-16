@@ -13,7 +13,6 @@ data class CharacterDetail(
     val isFavorite: Boolean = false
 )
 
-/** Small value object to represent an episode reference from the character payload. */
 data class EpisodeRef(
     val id: Int,
     val url: String

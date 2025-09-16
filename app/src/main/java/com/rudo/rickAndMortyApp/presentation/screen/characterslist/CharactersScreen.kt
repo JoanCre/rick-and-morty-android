@@ -16,6 +16,7 @@ import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -27,6 +28,9 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.paging.LoadState
 import androidx.paging.compose.LazyPagingItems
 import androidx.paging.compose.collectAsLazyPagingItems
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.rudo.rickAndMortyApp.presentation.components.EmptyState
 import com.rudo.rickAndMortyApp.presentation.components.ErrorState
 import com.rudo.rickAndMortyApp.presentation.components.LoadingState
@@ -54,7 +58,19 @@ fun CharactersScreen(
     modifier: Modifier = Modifier,
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    val items = viewModel.items.collectAsLazyPagingItems()
+    val pagedItems = viewModel.pagedItems.collectAsLazyPagingItems()
+    val favoriteItems by viewModel.favoriteItems.collectAsState(initial = emptyList())
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner, uiState.selectedTab) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME && uiState.selectedTab == CharacterTab.FAVORITES) {
+                viewModel.refresh()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     val actions = object : CharactersActions {
         override fun onNavigateToCharacterDetail(id: Int) {
@@ -76,7 +92,8 @@ fun CharactersScreen(
 
     CharactersContent(
         uiState = uiState,
-        items = items,
+        pagedItems = pagedItems,
+        favoriteItems = favoriteItems,
         actions = actions,
         modifier = modifier
     )
@@ -94,7 +111,8 @@ fun CharactersScreen(
 @Composable
 private fun CharactersContent(
     uiState: CharactersUiState,
-    items: LazyPagingItems<CharacterUi>,
+    pagedItems: LazyPagingItems<CharacterUi>,
+    favoriteItems: List<CharacterUi>,
     actions: CharactersActions,
     modifier: Modifier = Modifier
 ) {
@@ -142,69 +160,89 @@ private fun CharactersContent(
 
         Spacer(Modifier.height(16.dp))
 
-        when {
-            items.loadState.refresh is LoadState.Loading -> {
-                LoadingState(message = "Loading characters...")
-            }
-
-            items.loadState.refresh is LoadState.Error -> {
-                ErrorState(
-                    title = "Error loading characters",
-                    subtitle = "Please try again"
-                )
-            }
-
-            items.loadState.refresh is LoadState.NotLoading && items.itemCount == 0 -> {
-                val (title, subtitle) = when {
-                    uiState.selectedTab == CharacterTab.FAVORITES && uiState.query.isBlank() ->
-                        "No favorites yet" to "Add characters to favorites to see them here"
-
-                    uiState.selectedTab == CharacterTab.FAVORITES && uiState.query.isNotBlank() ->
-                        "No favorite characters found" to "Try a different search term"
-
-                    uiState.query.isNotBlank() ->
-                        "Characters not found" to "Try a different search term"
-
-                    else ->
-                        "No characters available" to "Check your connection"
+        if (uiState.selectedTab == CharacterTab.FAVORITES) {
+            if (favoriteItems.isEmpty()) {
+                val (title, subtitle) = if (uiState.query.isBlank()) {
+                    "No favorites yet" to "Add characters to favorites to see them here"
+                } else {
+                    "No favorite characters found" to "Try a different search term"
                 }
                 EmptyState(title = title, subtitle = subtitle)
-            }
-
-            else -> {
+            } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     items(
-                        count = items.itemCount,
-                        key = { index -> items[index]?.id ?: index }
+                        count = favoriteItems.size,
+                        key = { index -> favoriteItems[index].id }
                     ) { index ->
-                        val item = items[index]
-                        if (item != null) {
-                            CharacterCard(
-                                character = item,
-                                onFavoriteClick = { actions.onFavoriteToggle(item.id) },
-                                modifier = Modifier.clickable {
-                                    actions.onNavigateToCharacterDetail(
-                                        item.id
-                                    )
-                                }
-                            )
-                        }
+                        val item = favoriteItems[index]
+                        CharacterCard(
+                            character = item,
+                            onFavoriteClick = { actions.onFavoriteToggle(item.id) },
+                            modifier = Modifier.clickable {
+                                actions.onNavigateToCharacterDetail(item.id)
+                            }
+                        )
                     }
+                }
+            }
+        } else {
+            when {
+                pagedItems.loadState.refresh is LoadState.Loading -> {
+                    LoadingState(message = "Loading characters...")
+                }
 
-                    item {
-                        when (items.loadState.append) {
-                            is LoadState.Loading -> {
-                                PagingLoadingState()
+                pagedItems.loadState.refresh is LoadState.Error -> {
+                    ErrorState(
+                        title = "Error loading characters",
+                        subtitle = "Please try again"
+                    )
+                }
+
+                pagedItems.loadState.refresh is LoadState.NotLoading && pagedItems.itemCount == 0 -> {
+                    val (title, subtitle) = if (uiState.query.isNotBlank()) {
+                        "Characters not found" to "Try a different search term"
+                    } else {
+                        "No characters available" to "Check your connection"
+                    }
+                    EmptyState(title = title, subtitle = subtitle)
+                }
+
+                else -> {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        items(
+                            count = pagedItems.itemCount,
+                            key = { index -> pagedItems[index]?.id ?: index }
+                        ) { index ->
+                            val item = pagedItems[index]
+                            if (item != null) {
+                                CharacterCard(
+                                    character = item,
+                                    onFavoriteClick = { actions.onFavoriteToggle(item.id) },
+                                    modifier = Modifier.clickable {
+                                        actions.onNavigateToCharacterDetail(item.id)
+                                    }
+                                )
                             }
+                        }
 
-                            is LoadState.Error -> {
-                                PagingErrorState()
+                        item {
+                            when (pagedItems.loadState.append) {
+                                is LoadState.Loading -> {
+                                    PagingLoadingState()
+                                }
+
+                                is LoadState.Error -> {
+                                    PagingErrorState()
+                                }
+
+                                else -> {}
                             }
-
-                            else -> {}
                         }
                     }
                 }
